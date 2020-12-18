@@ -84,7 +84,7 @@ void uart_init() {
 	*AUX_MU_CNTL |= (0b11);
 }
 
-inline void uart_putc(char c) {
+void uart_putc(char c) {
 	do {
 		asm volatile("nop");
 	} while (!(*AUX_MU_LSR&0x20));
@@ -92,7 +92,7 @@ inline void uart_putc(char c) {
 	*AUX_MU_IO = c;
 }
 
-inline char uart_getc() {
+char uart_getc() {
 	do {
 		asm volatile("nop");
 	} while (!(*AUX_MU_LSR&0b1));
@@ -123,7 +123,7 @@ void put_uint(unsigned u) {
 #define MSG_LEN   (0x22222222)
 #define MSG_FILE  (0x33333333)
 
-#define LOAD_TO (0x80000 + 1024)
+#define LOAD_TO (0x80000 + 2048)
 
 inline void error(int n) {
 	put_uint(0xDEADFAC0 + n);
@@ -169,6 +169,8 @@ void kernel_main(void) {
 	for (uint32_t i = 0; i < len; i++) {
 		*to = uart_getc();
 
+		uart_putc(*to);
+
 		to += 1;
 	}
 
@@ -181,7 +183,7 @@ void kernel_main(void) {
 
 	put_uint(MSG_ACK);
 
-	// for (int i = 0; i < 1500; i++) asm volatile("nop");
+	for (int i = 0; i < 10000; i++) asm volatile("nop");
 
-	BRANCH_TO(0x80000);
+	BRANCH_TO(0x80000 + 2048);
 }

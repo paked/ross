@@ -102,6 +102,6 @@ void bootloaded(void) {
 	uart_init();
 
 	while (true) {
-		uart_putc('F');
+		uart_putc(uart_getc());
 	}
 }

@@ -50,20 +50,25 @@ def say_file():
 
     print("got len", read_uint()) # len
 
-    # dev.write(open(to_load, "rb").read())
+    bs = list(open("../kernel.bin", "rb").read())
 
-    dev.write(bytearray([0] * 10000))
+    for i in range(len(bs)):
+        b = bs[i]
+        print("hello", b, i)
+        dev.write(bytes([b]))
 
-    pad = to_load_len % 4
+        got = int.from_bytes(dev.read(1), "little")
 
-    if pad != 0:
-        dev.write(bytearray([0] * pad))
+        if got != b:
+            print("wanted", b, "got", got)
 
-    back = dev.read(to_load_len);
+            raise Exception("heck")
 
-    print(back)
+    print('done')
 
-    print("written")
+    print(dev.read(to_load_len))
+
+    print("hi")
     ack = read_uint()
 
     print("done")
@@ -72,6 +77,8 @@ def say_file():
         print(hex(ack))
         raise Exception("didn't receive ack for file msg");
 
+
+print(to_load_len)
 say_hello()
 
 print("hello")

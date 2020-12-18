@@ -1,4 +1,4 @@
-BootloadedOffset = 1024;
+BootloadedOffset = 2048;
 
 SECTIONS
 {

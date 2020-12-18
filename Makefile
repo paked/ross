@@ -15,4 +15,4 @@ kernel.bin: bootloaded.o $(OBJS)
 	aarch64-none-elf-objcopy -O binary kernel.elf kernel.bin
 
 clean:
-	rm kernel8.elf kernel8.img *.o >/dev/null 2>/dev/null || true
+	rm kernel.elf kernel.bin *.o >/dev/null 2>/dev/null || true
