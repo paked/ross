@@ -1,18 +1,29 @@
-SRCS = $(wildcard *.c)
-OBJS = $(SRCS:.c=.o)
-CFLAGS = -Wall -O2 -I. -ffreestanding -nostdlib -nostartfiles
+SRC_DIRS := src
 
-all: clean kernel.bin
+SRCS := $(shell find $(SRC_DIRS) -name *.c -or -name *.S)
+OBJS := $(addsuffix .o,$(basename $(SRCS)))
 
-bootloaded.o: bootloaded.S
-	aarch64-none-elf-gcc $(CFLAGS) -c bootloaded.S -o bootloaded.o
+CFLAGS := -Wall -Werror -Iinclude -ffreestanding -nostdlib -nostartfiles
+
+TARGET := kernel
+
+DEVICE ?= /dev/ttyUSB0
+
+all: clean $(TARGET).bin
 
 %.o: %.c
-	aarch64-none-elf-gcc $(CFLAGS) -c $< -o $@
+	aarch64-none-elf-gcc $(CFLAGS) -o $@ -c $<
 
-kernel.bin: bootloaded.o $(OBJS)
-	aarch64-none-elf-ld -nostdlib -nostartfiles bootloaded.o $(OBJS) -T link.ld -o kernel.elf
-	aarch64-none-elf-objcopy -O binary kernel.elf kernel.bin
+%.o: %.S
+	aarch64-none-elf-gcc $(CFLAGS) -o $@ -c $<
+
+$(TARGET).bin: $(OBJS)
+	aarch64-none-elf-ld -nostdlib -nostartfiles $(OBJS) -T link.ld -o $(TARGET).elf
+	aarch64-none-elf-objcopy -O binary $(TARGET).elf $(TARGET).bin
+
+flash: $(TARGET.bin)
+	python3 bootloader/tools/bootloader-client.py $(TARGET).bin $(DEVICE)
+	screen $(DEVICE) 115200
 
 clean:
-	rm kernel.elf kernel.bin *.o >/dev/null 2>/dev/null || true
+	rm $(TARGET).elf $(TARGET).bin $(OBJS) >/dev/null 2>/dev/null || true

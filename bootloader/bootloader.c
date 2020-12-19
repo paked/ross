@@ -68,7 +68,7 @@ void uart_init() {
 	*AUX_MU_CNTL &= ~(0b11);
 
 	// disable interrupts (IER)
-	*AUX_MU_IIR &= ~((1<<1)|(1<<0));
+	*AUX_MU_IER &= ~((1<<1)|(1<<0));
 
 	// switch to 8 bit mode (LCR)
 	*AUX_MU_LCR &= ~((1<<1)|(1<<0));
