@@ -8,7 +8,6 @@ void bootloaded(void) {
 	uart_init();
 
 	// set GPIO 20 to output
-
 	GPIO->FSEL[2] &= ~(0b111);
 	GPIO->FSEL[2] |= (0b001);
 
