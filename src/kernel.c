@@ -22,6 +22,31 @@ uint32_t write(char* buf, uint32_t len) {
 	return len;
 }
 
+void synchronous_exception(uint64_t esr) {
+	uint32_t smol_esr = (uint32_t) esr;
+
+	uint32_t ec = (smol_esr >> 26) & (0b111111);
+
+	switch (ec) {
+		case 0b010101: // SVC
+			{
+				uint32_t imm = smol_esr & 0xFF;
+
+				printf("got svc %d\n", imm);
+			} break;
+		default:
+			printf("unknown synchronous exception syndrome! cannot recover.\n");
+
+			while(true);
+	}
+}
+
+void die() {
+	printf("unhandled exception called! cannot recover.\n");
+
+	while (true);
+}
+
 void bootloaded(void) {
 	uart_init();
 
@@ -54,5 +79,7 @@ void bootloaded(void) {
 		}
 
 		uart_putc(c);
+
+		asm volatile("svc 42");
 	}
 }
