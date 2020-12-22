@@ -3,7 +3,7 @@ SRC_DIRS := src
 SRCS := $(shell find $(SRC_DIRS) -name *.c -or -name *.S)
 OBJS := $(addsuffix .o,$(basename $(SRCS)))
 
-CFLAGS := -Wall -Werror -Iinclude -ffreestanding -nostdlib -nostartfiles
+CFLAGS := -Wall -Werror -Iinclude -ffreestanding -nostdlib -nostartfiles -O0 -mgeneral-regs-only
 
 TARGET := kernel
 
