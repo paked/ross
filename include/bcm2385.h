@@ -59,6 +59,28 @@ struct MiniUART_Type {
 	volatile uint32_t BAUD;
 };
 
+struct Interrupts_Type {
+	volatile uint32_t PENDING_BASIC;
+	volatile uint32_t PENDING[2];
+	volatile uint32_t FIQ;
+	volatile uint32_t ENABLE[2];
+	volatile uint32_t ENABLE_BASIC;
+	volatile uint32_t DISABLE[2];
+	volatile uint32_t DISABLE_BASIC;
+};
+
+struct SystemTimer_Type {
+	volatile uint32_t CS;
+	volatile uint32_t CLO;
+	volatile uint32_t CHI;
+	volatile uint32_t C0;
+	volatile uint32_t C1;
+	volatile uint32_t C2;
+	volatile uint32_t C3;
+};
+
 #define GPIO ((struct GPIO_Type*) (MMIO_BASE + 0x00200000))
 #define AUX ((struct AUX_Type*) (MMIO_BASE + 0x00215000))
 #define UART1 ((struct MiniUART_Type*) (MMIO_BASE + 0x00215040))
+#define INTERRUPTS ((struct Interrupts_Type*) (MMIO_BASE + 0xB200))
+#define SYSTIMER ((struct SystemTimer_Type*) (MMIO_BASE + 0x3000))

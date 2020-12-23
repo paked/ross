@@ -101,7 +101,7 @@ vectors:
 	.align 7
 	b sync_el1h
 	.align 7
-	b die // IRQ EL1h
+	b irq_el1h
 	.align 7
 	b die // FIQ EL1h
 	.align 7
@@ -130,6 +130,15 @@ sync_el1h:
 
 	mrs x0, ESR_EL1
 	bl synchronous_exception
+
+	kernel_exit
+
+	eret
+
+irq_el1h:
+	kernel_entry
+
+	bl irq_exception
 
 	kernel_exit
 

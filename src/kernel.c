@@ -41,6 +41,17 @@ void synchronous_exception(uint64_t esr) {
 	}
 }
 
+void irq_exception() {
+	if (INTERRUPTS->PENDING[0] & (1 << 1)) {
+		printf("timer interrupt!\n");
+		SYSTIMER->C1 = SYSTIMER->CLO + 1000000; // delay for some point in the future
+		SYSTIMER->CS |= (1 << 1);
+
+	}
+
+	printf("got IRQ exception!\n");
+}
+
 void die() {
 	printf("unhandled exception called! cannot recover.\n");
 
@@ -50,7 +61,18 @@ void die() {
 void bootloaded(void) {
 	uart_init();
 
-	printf("hello world\n");
+	//
+	// Configure IRQs
+	//
+
+	// turn off all interrupts
+	INTERRUPTS->DISABLE[0] = 0;
+	INTERRUPTS->DISABLE[1] = 0;
+	INTERRUPTS->DISABLE_BASIC = 0;
+
+	INTERRUPTS->ENABLE[0] |= (1 << 1); // set bit 1, enabling System Timer channel 1
+
+	SYSTIMER->C1 = SYSTIMER->CLO + 1000000; // delay for some point in the future
 
 	// set GPIO 20 to output
 	GPIO->FSEL[2] &= ~(0b111);
