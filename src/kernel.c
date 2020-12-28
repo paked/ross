@@ -1,5 +1,6 @@
+#include <kernel.h>
+
 #include <stdbool.h>
-#include <stdint.h>
 
 #include "bcm2385.h"
 #include "uart.h"
@@ -9,66 +10,6 @@
 #include "xprintf.h"
 
 #define printf(...) xprintf(&write, __VA_ARGS__)
-
-struct context {
-	volatile uint64_t sp;
-	volatile uint64_t reserved;
-
-	volatile uint64_t elr;
-	volatile uint64_t spsr;
-
-	volatile uint64_t x30;
-	volatile uint64_t xzr;
-
-	volatile uint64_t x28;
-	volatile uint64_t x29;
-
-	volatile uint64_t x26;
-	volatile uint64_t x27;
-
-	volatile uint64_t x24;
-	volatile uint64_t x25;
-
-	volatile uint64_t x22;
-	volatile uint64_t x23;
-
-	volatile uint64_t x20;
-	volatile uint64_t x21;
-
-	volatile uint64_t x18;
-	volatile uint64_t x19;
-
-	volatile uint64_t x16;
-	volatile uint64_t x17;
-
-	volatile uint64_t x14;
-	volatile uint64_t x15;
-
-	volatile uint64_t x12;
-	volatile uint64_t x13;
-
-	volatile uint64_t x10;
-	volatile uint64_t x11;
-
-	volatile uint64_t x8;
-	volatile uint64_t x9;
-
-	volatile uint64_t x6;
-	volatile uint64_t x7;
-
-	volatile uint64_t x4;
-	volatile uint64_t x5;
-
-	volatile uint64_t x2;
-	volatile uint64_t x3;
-
-	volatile uint64_t x0;
-	volatile uint64_t x1;
-};
-
-struct process {
-	struct context context;
-};
 
 uint32_t write(char* buf, uint32_t len) {
 	for (uint32_t i = 0; i < len; i++) {
@@ -80,25 +21,6 @@ uint32_t write(char* buf, uint32_t len) {
 	}
 
 	return len;
-}
-
-void exception_synchronous(uint64_t esr) {
-	uint32_t smol_esr = (uint32_t) esr;
-
-	uint32_t ec = (smol_esr >> 26) & (0b111111);
-
-	switch (ec) {
-		case 0b010101: // SVC
-			{
-				uint32_t imm = smol_esr & 0xFF;
-
-				printf("got svc %d\n", imm);
-			} break;
-		default:
-			printf("unknown synchronous exception syndrome! cannot recover. %d\n", ec);
-
-			while(true);
-	}
 }
 
 void print_context(struct context *context) {
@@ -139,13 +61,116 @@ void print_context(struct context *context) {
 	printf("xzr=%x\n", context->xzr);
 	printf("spsr=%x\n", context->spsr);
 	printf("elr=%x\n", context->elr);
-	printf("sp=%x\n", context->sp);
+	printf("addr/sp=%x\n", context);
+}
+
+#define MAX_PROCESS_COUNT (8)
+struct process processes[MAX_PROCESS_COUNT] = {0};
+
+struct process* process_current = 0;
+volatile struct context* next_context = 0;
+
+uint64_t scheduler_current_index = 0;
+
+int64_t pid_next = 1;
+
+// TODO(harrison): set up memory allocation so we can allocate a stack at run
+// time
+int64_t process_create(void (*handler)(void), char* stack, size_t size) {
+	struct process *process = 0;
+
+	for (int64_t i = 0; i < MAX_PROCESS_COUNT; i++) {
+		if (processes[i].pid != 0) {
+			continue;
+		}
+
+		process = &processes[i];
+		process->pid = pid_next++;
+
+		break;
+	}
+
+	if (process == 0) {
+		printf("too many concurrent processes\n");
+
+		return -1;
+	}
+
+	char* sp_top = stack + (size-sizeof(struct context));
+	uint64_t offs = (uint64_t) sp_top % 16; // sp gotta be 16 byte aligned
+	sp_top -= offs;
+
+	process->context = (struct context*) sp_top;
+	process->context->elr = (uint64_t) handler;
+	process->context->spsr = 0b0101; // set mode to el1h
+
+	return process->pid;
+}
+
+void schedule() {
+	if (process_current != 0) {
+		process_current->context = (struct context*) next_context;
+	}
+
+	struct process *next_process = 0;
+
+	for (uint32_t i = 0; i < MAX_PROCESS_COUNT; i++) {
+		uint32_t real_index = (scheduler_current_index+i+1) % MAX_PROCESS_COUNT;
+		struct process *process = &processes[real_index];
+
+		if (process->pid == 0) {
+			continue;
+		}
+
+		next_process = process;
+		scheduler_current_index = real_index;
+
+		printf("chose %d %x %d\n", process->pid, process->context, scheduler_current_index);
+
+
+		break;
+	}
+
+	process_current = next_process;
+	next_context = process_current->context;
+}
+
+void exception_synchronous_handle_svc(uint32_t imm) {
+	switch (imm) {
+		case 1: // yield to scheduler
+			{
+				schedule();
+			} break;
+		case 42: // test
+			{
+				printf("42 yolo!\n");
+			} break;
+	}
+}
+
+void exception_synchronous(uint64_t esr) {
+	uint32_t smol_esr = (uint32_t) esr;
+
+	uint32_t ec = (smol_esr >> 26) & (0b111111);
+
+	switch (ec) {
+		case 0b010101: // SVC
+			{
+				uint16_t imm = smol_esr & 0xFFFF;
+				printf("got svc %d\n", imm);
+				exception_synchronous_handle_svc(imm);
+			} break;
+		default:
+			printf("unknown synchronous exception syndrome! cannot recover. %d\n", ec);
+
+			while(true);
+	}
 }
 
 void exception_irq_handle_systimer(struct context* context) {
-	print_context(context);
+	schedule();
 
-	SYSTIMER->C1 = SYSTIMER->CLO + 1000000; // delay for some point in the future
+	SYSTIMER->C1 = SYSTIMER->CLO + 5000000; // delay for some point in the future
 }
 
 void exception_irq(void* ptr) {
@@ -157,24 +182,30 @@ void exception_irq(void* ptr) {
 	}
 }
 
-void die() {
-	printf("unhandled exception called! cannot recover.\n");
+void die(uint64_t r) {
+	printf("unhandled exception called! cannot recover. %d\n", r);
 
 	while (true);
 }
 
 void process_fn_1() {
 	while (true) {
-		uart_putc(uart_getc());
+		printf("goodbye world\n");
 	}
 }
 
-extern void done(void);
+void process_fn_2() {
+	while (true) {
+		printf("hello world\n");
+	}
+}
+
+
+char mem[2048 * 8] = {0};
+char mem2[2048 * 8] = {0};
 
 void bootloaded(void) {
 	uart_init();
-
-	printf("hello world\n");
 
 	//
 	// Configure IRQs
@@ -187,57 +218,25 @@ void bootloaded(void) {
 
 	INTERRUPTS->ENABLE[0] |= (1 << 1); // set bit 1, enabling System Timer channel 1
 
-	SYSTIMER->C1 = SYSTIMER->CLO + 1000000; // delay for some point in the future
-
 	// set GPIO 20 to output
 	GPIO->FSEL[2] &= ~(0b111);
 	GPIO->FSEL[2] |= (0b001);
 
 	GPIO->SET[0] |= (1 << 20);
 
-	done();
-
-	/*
-	uint32_t el = get_el();
-
-	bool on = false;
-
-	while (true) {
-		printf("current EL is: %d\n", el);
-
-		if (on) {
-			GPIO->CLEAR[0] |= (1 << 20);
-		} else {
-			GPIO->SET[0] |= (1 << 20);
-		}
-
-		on = !on;
-
-		char c = uart_getc();
-		if (c == '\r') {
-			uart_putc('\n');
-		}
-
-		uart_putc(c);
-
-		asm volatile("svc 42");
-	}
-	*/
-
 	//
-	// Create process
+	// Initialise process
 	//
 
-	// zero out all registers
+	process_create(&process_fn_1, mem, sizeof(mem));
+	process_create(&process_fn_2, mem2, sizeof(mem2));
 
-	// set up pc, sp, lr
+	uart_putc(uart_getc());
 
-	//
-	// Context switch
-	//
+	SYSTIMER->C1 = SYSTIMER->CLO + 5000000; // delay for some point in the future
 
-	// set sp and lr correctly
-	// branch to pc
+	asm volatile("svc 1");
 
-	// while (true);
+	// NOTE(harrison): should never end up here
+	while (true);
 }

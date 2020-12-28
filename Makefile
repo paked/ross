@@ -23,7 +23,8 @@ $(TARGET).bin: $(OBJS)
 
 flash: $(TARGET.bin)
 	python3 bootloader/tools/bootloader-client.py $(TARGET).bin $(DEVICE)
-	screen $(DEVICE) 115200
+	# screen $(DEVICE) 115200
+	tio $(DEVICE)
 
 clean:
 	rm $(TARGET).elf $(TARGET).bin $(OBJS) >/dev/null 2>/dev/null || true

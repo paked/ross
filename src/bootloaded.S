@@ -47,20 +47,6 @@ el1_entry:
 
 	b 3b
 
-.global done
-done:
-	ldr x0, =0x10
-	ldr x1, =0x20
-	ldr x3, =0x200
-	ldr x4, =0x200
-	ldr x5, =0x200
-	ldr x6, =0x10
-	ldr x7, =0x11223344
-
-	ldr x20, =0xDEADBEEF
-
-	b done
-
 .macro ctx_save
 	stp x0, x1, [sp, #-16]!
 	stp x2, x3, [sp, #-16]!
@@ -83,12 +69,15 @@ done:
 	mrs x1, ELR_EL1
 	stp x0, x1, [sp, #-16]!
 
+	ldr x1, =next_context
+
 	mov x0, sp
-	stp x0, xzr, [sp, #-16]!
+	str x0, [x1]
 .endm
 
 .macro ctx_restore
-	ldp x0, xzr, [sp], #16
+	ldr x0, =next_context
+	ldr x0, [x0]
 	mov sp, x0
 
 	ldp x0, x1, [sp], #16
@@ -116,12 +105,16 @@ done:
 .align 11
 vectors:
 	.align 7
+	mov x0, 0
 	b die // Synchronous EL1t
 	.align 7
+	mov x0, 1
 	b die // IRQ EL1t
 	.align 7
+	mov x0, 2
 	b die // FIQ EL1t
 	.align 7
+	mov x0, 3
 	b die // Error EL1t
 
 	.align 7
@@ -129,26 +122,36 @@ vectors:
 	.align 7
 	b irq_el1h
 	.align 7
+	mov x0, 6
 	b die // FIQ EL1h
 	.align 7
+	mov x0, 7
 	b die // Error EL1h
 
 	.align 7
+	mov x0, 8
 	b die // Synchronous EL0 (64 bit)
 	.align 7
+	mov x0, 9
 	b die // IRQ EL0 (64 bit)
 	.align 7
+	mov x0, 10
 	b die // FIQ EL0 (64 bit)
 	.align 7
+	mov x0, 11
 	b die // Error EL0 (64 bit)
 
 	.align 7
+	mov x0, 12
 	b die // Synchronous EL0 (32 bit)
 	.align 7
+	mov x0, 13
 	b die // IRQ EL0 (32 bit)
 	.align 7
+	mov x0, 14
 	b die // FIQ EL0 (32 bit)
 	.align 7
+	mov x0, 15
 	b die // Error EL0 (32 bit)
 
 sync_el1h:
