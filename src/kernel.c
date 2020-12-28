@@ -74,6 +74,8 @@ uint64_t scheduler_current_index = 0;
 
 int64_t pid_next = 1;
 
+void process_runner(void (*handler)(void));
+
 // TODO(harrison): set up memory allocation so we can allocate a stack at run
 // time
 int64_t process_create(void (*handler)(void), char* stack, size_t size) {
@@ -101,11 +103,29 @@ int64_t process_create(void (*handler)(void), char* stack, size_t size) {
 	sp_top -= offs;
 
 	process->context = (struct context*) sp_top;
-	process->context->elr = (uint64_t) handler;
+	process->context->x0 = (uint64_t) handler;
+	process->context->elr = (uint64_t) &process_runner;
 	process->context->spsr = 0b0101; // set mode to el1h
 
 	return process->pid;
 }
+
+void process_finish(struct process* process) {
+	process->pid = 0;
+}
+
+void process_runner(void (*handler)(void)) {
+	handler();
+
+	process_finish(process_current);
+
+	printf("process done!\n");
+
+	asm volatile("svc 1");
+	while (true);
+}
+
+
 
 void schedule() {
 	if (process_current != 0) {
@@ -195,7 +215,7 @@ void process_fn_1() {
 }
 
 void process_fn_2() {
-	while (true) {
+	for (int i = 0; i < 100; i++) {
 		printf("hello world\n");
 	}
 }
